@@ -77,10 +77,23 @@ void align_bitpal(const string& X, const string& Y) {
 
         // step 3
         uint64_t not_DV_high;
-        for (int i = MID; i <= MAX; )
-        for (int i = MID; i >= MIN; i--) {
-
+        for (int i = MID; i <= MAX; i++) {
+            not_DV_high |= deltaV[i];
         }
+        not_DV_high = ~not_DV_high;
+        for (int i = MID; i > MIN; i--) {
+            for (int j = MAX; j > MID; j--) {
+                deltaV[i] |= deltaV[j] & deltaH[MAX-MID+i];
+            }
+            deltaV[i] |= not_DV_high & deltaH[MAX-MID+i];
+            deltaV[i] <<= 1;
+        }
+
+        // step 4
+        for (int i = MAX; i > MIN; i++) {
+            deltaV[MIN] |= deltaV[i];
+        }
+        deltaV[MIN] ^= -1;  // all ones
     }
 }
 
