@@ -1,5 +1,5 @@
 all:
-	g++ bitpal.cpp -O3 -o bitpal
+	g++ -std=c++23 bitpal.cpp -O3 -o bitpal
 
 clean:
 	rm -f bitpal
