@@ -5,10 +5,6 @@
 #include <bit>
 #include <bitset>
 
-#define M 1
-#define I -1
-#define G -3
-
 using namespace std;
 
 const uint64_t one = 1;
@@ -26,8 +22,8 @@ class MatchVectors {
             this->seq = seq;
             for (int i = 0; i < seq.length(); i++) {
                 // set corresponding bit of matchvector
-                // first character corresponds with leftmost bit of the bitvector
-                get(seq[i]) |= one << (63 - i);
+                // first character corresponds to lowest order bit of the bitvector
+                get(seq[i]) |= one << i;
             }
         }
 
@@ -49,61 +45,82 @@ class MatchVectors {
         }
 
         friend ostream& operator<<(ostream& os, MatchVectors& mv) {
-            cout << "sequence:       " << mv.seq << endl;
-            cout << "match vector A: " << bitset<64>(mv.matchA) << endl;
-            cout << "match vector C: " << bitset<64>(mv.matchC) << endl;
-            cout << "match vector G: " << bitset<64>(mv.matchG) << endl;
-            cout << "match vector T: " << bitset<64>(mv.matchT) << endl << endl;
+            os << "sequence:       " << mv.seq << endl;
+            os << "match vector A: " << bitset<64>(mv.matchA) << endl;
+            os << "match vector C: " << bitset<64>(mv.matchC) << endl;
+            os << "match vector G: " << bitset<64>(mv.matchG) << endl;
+            os << "match vector T: " << bitset<64>(mv.matchT) << endl << endl;
+            return os;
         }
 };
 
+void print_bitvec(uint64_t bv, string name) {
+    cout << bitset<64>(bv) << " " << name << endl;
+}
+
 int align_bitpal(const string& X, const string& Y) {
     // create match vectors, these are created from the horizontal sequence
-    MatchVectors matches = MatchVectors(Y);
+    MatchVectors match_vectors = MatchVectors(Y);
 
     // create deltaV and deltaH bitvectors
-    uint64_t deltaV4, deltaV3, deltaV2, deltaV1, deltaV0, deltaVmin1, deltaVmin2, deltaVmin3;
+    uint64_t deltaV4 = 0;
+    uint64_t deltaV3 = 0;
+    uint64_t deltaV2 = 0;
+    uint64_t deltaV1 = 0;
+    uint64_t deltaV0 = 0;
+    uint64_t deltaVmin1 = 0;
+    uint64_t deltaVmin2 = 0;
+    uint64_t deltaVmin3 = 0;
 
-    uint64_t deltaH4, deltaH3, deltaH2, deltaH1, deltaH0, deltaHmin1, deltaHmin2, deltaHmin3;
-
-    // initialize deltaH_min to all ones
-    deltaHmin3 = all_ones;
+    uint64_t deltaH4 = 0;
+    uint64_t deltaH3 = 0;
+    uint64_t deltaH2 = 0;
+    uint64_t deltaH1 = 0;
+    uint64_t deltaH0 = 0;
+    uint64_t deltaHmin1 = 0;
+    uint64_t deltaHmin2 = 0;
+    uint64_t deltaHmin3 = all_ones;
 
     // main loop
     for (char c: X) {
-        uint64_t curr_matches = matches.get(c);
+        uint64_t matches = match_vectors.get(c);
 
         // step 1, compute deltaV_max
-        uint64_t initmax = deltaHmin3 & curr_matches;
-        deltaV4 = ((initmax + deltaHmin3) ^ deltaHmin3) ^ initmax;
+        uint64_t deltaV4_initial = deltaHmin3 & matches;
+        deltaV4 = ((deltaV4_initial + deltaHmin3) ^ deltaHmin3) ^ deltaV4_initial;
+        uint64_t deltaV4_or_match = deltaV4 | matches;
 
         // step 2, compute remaining deltaV_high (only one in this case)
         uint64_t deltaHmin3_remaining = deltaHmin3 ^ (deltaV4 >> 1);
-        deltaV3 = (((deltaHmin2 & deltaV4) << 1) + deltaHmin3_remaining) ^ deltaHmin3_remaining;
-        uint64_t deltaV3_not_match = deltaV3 & ~curr_matches;
+        deltaV3 = (((deltaHmin2 & deltaV4_or_match) << 1) + deltaHmin3_remaining) ^ deltaHmin3_remaining;
+        uint64_t deltaV3_not_match = deltaV3 & ~matches;
 
         // step 3, compute deltaV_low
-        uint64_t deltaV_low = ~(deltaV4 | deltaV3);
+        uint64_t deltaV_low = ~(deltaV4_or_match | deltaV3);
 
-        deltaV2 = (deltaHmin1 & deltaV4) | (deltaHmin2 & deltaV3_not_match) | (deltaHmin3 & deltaV_low); 
-        deltaV1 = (deltaH0 & deltaV4) | (deltaHmin1 & deltaV3_not_match) | (deltaHmin3 & deltaV_low);
-        deltaV0 = (deltaH1 & deltaV4) | (deltaH0 & deltaV3_not_match) | (deltaHmin1 & deltaV_low);
-        deltaVmin1 = (deltaH2 & deltaV4) | (deltaH1 & deltaV3_not_match) | (deltaH0 & deltaV_low);
-        deltaVmin2 = (deltaH3 & deltaV4) | (deltaH2 & deltaV3_not_match) | (deltaH1 & deltaV_low);
+        deltaV2 = ((deltaHmin1 & deltaV4_or_match) | (deltaHmin2 & deltaV3_not_match) | (deltaHmin3 & deltaV_low)) << 1;
+        deltaV1 = ((deltaH0 & deltaV4_or_match) | (deltaHmin1 & deltaV3_not_match) | (deltaHmin2 & deltaV_low)) << 1;
+        deltaV0 = ((deltaH1 & deltaV4_or_match) | (deltaH0 & deltaV3_not_match) | (deltaHmin1 & deltaV_low)) << 1;
+        deltaVmin1 = ((deltaH2 & deltaV4_or_match) | (deltaH1 & deltaV3_not_match) | (deltaH0 & deltaV_low)) << 1;
+        deltaVmin2 = ((deltaH3 & deltaV4_or_match) | (deltaH2 & deltaV3_not_match) | (deltaH1 & deltaV_low)) << 1;
 
         // step 4, compute deltaV_min
-        deltaVmin3 = -1 ^ (deltaV4 | deltaV3 | deltaV2 | deltaV1 | deltaV0 | deltaVmin1 | deltaVmin2);
+        deltaVmin3 = all_ones ^ (deltaV4 | deltaV3 | deltaV2 | deltaV1 | deltaV0 | deltaVmin1 | deltaVmin2);
 
         // step 5, compute deltaH values
 
         // convert all deltaH_low values to deltaH_mid
         deltaH2 |= deltaHmin3 | deltaHmin2 | deltaHmin1 | deltaH0 | deltaH1;
-        deltaH1, deltaH0, deltaHmin1, deltaHmin2, deltaHmin3 = 0;
+        deltaH1 = 0;
+        deltaH0 = 0;
+        deltaHmin1 = 0;
+        deltaHmin2 = 0;
+        deltaHmin3 = 0;
         // add match positions to previous deltaH_max
-        deltaH4 |= curr_matches;
+        deltaH4 |= matches;
         // remove match positions from all other previous deltaH vectors
-        deltaH3 &= ~curr_matches;
-        deltaH2 &= ~curr_matches;
+        deltaH3 &= ~matches;
+        deltaH2 &= ~matches;
         // all other vectors are 0
 
         // compute current deltaH values
@@ -118,15 +135,18 @@ int align_bitpal(const string& X, const string& Y) {
         deltaHmin3 = all_ones ^ (deltaH4 | deltaH3 | deltaH2 | deltaH1 | deltaH0 | deltaHmin1 | deltaHmin2);
     }
 
+    uint64_t seq_len = ~(all_ones << Y.length());
+
     // compute final result
-    return G*X.length()
-        + popcount(deltaHmin3) * -3
-        + popcount(deltaHmin2) * -2
-        + popcount(deltaHmin1) * -1
-        + popcount(deltaH1) * 1
-        + popcount(deltaH2) * 2
-        + popcount(deltaH3) * 3
-        + popcount(deltaH4) * 4;
+    return -3*X.length()    // sum of left column of deltaV matrix (always G)
+        // sum of bottom row of deltaH matrix
+        + popcount(deltaHmin3 & seq_len) * -3
+        + popcount(deltaHmin2 & seq_len) * -2
+        + popcount(deltaHmin1 & seq_len) * -1
+        + popcount(deltaH1 & seq_len) * 1
+        + popcount(deltaH2 & seq_len) * 2
+        + popcount(deltaH3 & seq_len) * 3
+        + popcount(deltaH4 & seq_len) * 4;
 }
 
 
