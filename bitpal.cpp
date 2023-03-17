@@ -1,7 +1,5 @@
-#include <cstdlib>
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <bit>
 #include <bitset>
 
@@ -150,22 +148,22 @@ int align_bitpal(const string& X, const string& Y) {
 }
 
 
-void readSequences(const string& filename, vector<string>& sequences) {
+void readSequences(const string& filename, string sequences[]) {
     ifstream ifs(filename.c_str());
     if (!ifs) {
         throw runtime_error("Could not open file: " + filename);
     }
-    string line;
-    while (ifs) {
-        getline(ifs, line);
-        if (line.empty()) {
-            continue;
-        }
+    int seq_idx = -1;
+    for (string line; getline(ifs, line);) {
         if (line.front() == '>') {
-            sequences.push_back(string());
+            sequences[++seq_idx] = "";
+            if (seq_idx > 1) {
+                cerr << "Input FASTA file should contain only two sequences\n";
+                exit(EXIT_FAILURE);
+            }
             continue;
         }
-        sequences.back().append(line);
+        sequences[seq_idx].append(line);
     }
 }
 
@@ -175,13 +173,8 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    vector<string> sequences;
+    string sequences[2];
     readSequences(argv[1], sequences);
-
-    if (sequences.size() != 2) {
-        cerr << "Input FASTA file should contain only two sequences\n";
-        return EXIT_FAILURE;
-    }
 
     // X is vertical, Y is horizontal
     // we want the longest sequence to be the horizontal one, 
